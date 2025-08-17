@@ -1,63 +1,104 @@
-# Credit Card Default Prediction (Machine Learning)
 
-**Goal:** Predict whether a credit card client will default in the next billing cycle using demographic, behavioral, and financial features.
+## Credit Card Default Prediction (UCI) — A Comparative Machine Learning Study
 
-On the UCI “Default of Credit Card Clients” dataset (30,000 records), Random Forest outperforms Logistic Regression at identifying defaulters.  
-- **Accuracy:** ≈ 0.81 (both)  
-- **AUC:** RF **0.757** vs LR **0.715**  
-- **Recall (class 1 – defaulters):** RF **0.36** vs LR **0.24**  
-- **Key driver:** Recent repayment status (**PAY_0**)
+### Overview
 
----
+This project builds and evaluates machine-learning models to predict **next-month default** for credit-card customers using demographic, behavioral, and financial attributes. We benchmark **Logistic Regression** against a **Random Forest** on the UCI “Default of Credit Card Clients” dataset and report results through accuracy, precision/recall/F1, ROC–AUC, confusion matrices, RMSE on probabilities, and **McNemar’s test** for paired comparison.
 
-## 1) Problem & Context
-Credit risk teams need early, reliable default predictions to reduce losses and tailor interventions (e.g., limit changes, outreach). We build and compare models to predict next-month default as a binary classification problem.
+### Data
 
----
+* **Source:** UCI Machine Learning Repository — *Default of Credit Card Clients* (Yeh & Lien, 2009)
+* **Size:** 30,000 rows; **23 predictors + 1 target**
+* **Target:** `default_payment_next_month` (1 = default, 0 = no default)
+* **Feature groups:**
 
-## 2) Data
-- **Source:** UCI Machine Learning Repository — *Default of Credit Card Clients* (Yeh & Lien, 2009).  
-- **Size:** 30,000 rows; 23 features + target.  
-- **Target:** `default_payment_next_month` (1 = default, 0 = no default).  
-- **Feature groups:**  
-  - Demographics: `SEX`, `EDUCATION`, `MARRIAGE`, `AGE`  
-  - Credit limit & bills: `LIMIT_BAL`, `BILL_AMT1..6`  
-  - Payments: `PAY_AMT1..6`  
-  - Repayment history (status codes): `PAY_0..PAY_6`  
+  * Demographics: `SEX`, `EDUCATION`, `MARRIAGE`, `AGE`
+  * Credit limit & bills: `LIMIT_BAL`, `BILL_AMT1..6`
+  * Payments: `PAY_AMT1..6`
+  * Repayment history: `PAY_0..PAY_6`
+* **Class imbalance:** \~**22%** default, **78%** non-default
 
-> Note: The dataset is imbalanced (~22% default, ~78% non-default).
+### Problem & Context
 
----
+Credit-risk teams need early and reliable default predictions to reduce losses and tailor interventions (e.g., limit adjustments, proactive outreach). We frame this as a **binary classification** problem and compare interpretable linear baselines to ensemble methods.
 
-## 3) Approach
-1. **EDA & Cleaning**
-   - Drop `ID`, standardize column names, sanity checks for missing values (none found).
-   - Store raw and processed data in SQLite (`credit_card_db.db`) for traceability.
-2. **Train/Test Split**
-   - Stratified split (70/30) to preserve class ratios; `random_state=42`.
-3. **Preprocessing**
-   - **Scaling** applied only to Logistic Regression (StandardScaler).
-4. **Models**
-   - **Logistic Regression** (baseline; also tried `class_weight='balanced'`).
-   - **Random Forest** (tuned with GridSearchCV; best: `n_estimators=200`, `min_samples_split=5`, `max_depth=None`).
-5. **Evaluation**
-   - Metrics: Accuracy, Precision/Recall/F1, ROC–AUC, Confusion Matrix.
-   - Additional: McNemar’s test for paired comparison; RMSE on probabilities.
+### Methodology
 
----
+* **EDA & Cleaning:**
 
-## 4) Results
-- **Overall**
-  - **Accuracy:** ~0.81 (LR and RF)
-  - **AUC:** LR **0.715**, RF **0.757**
-  - **Recall (defaulters):** LR **0.24**, RF **0.36**
-  - **RMSE (probas):** LR **0.3822**, RF **0.3749**
-  - **McNemar’s test:** χ² ≈ **1.545**, p ≈ **0.214** (no statistically significant difference in error patterns)
+  * Drop `ID`, standardize column names, confirm no missing values.
+  * Persist raw and processed frames to SQLite (`credit_card_db.db`) for traceability.
+* **Split:** Stratified **70/30** train/test (preserve class ratios), `random_state=42`.
+* **Preprocessing:**
 
-- **Interpretation**
-  - **RF** provides materially higher **recall** for the minority (defaulters) with a better AUC—preferable for risk mitigation.
-  - **Top signals:** Repayment history, especially **`PAY_0`** (most recent status); also `LIMIT_BAL` and billing/payment magnitudes.
+  * **Scaling** (StandardScaler) applied **only** to Logistic Regression.
+* **Models:**
 
-- **Recommendation**
-  - Deploy **Random Forest**; perform **threshold tuning** and/or **cost-sensitive** adjustments to align with business loss functions.
+  * **Logistic Regression** (baseline; also tried `class_weight='balanced'`).
+  * **Random Forest** tuned via GridSearchCV → **best:** `n_estimators=200`, `min_samples_split=5`, `max_depth=None`.
+* **Evaluation:**
 
+  * Metrics: **Accuracy**, **Precision/Recall/F1**, **ROC–AUC**, **Confusion Matrix**
+  * Extras: **RMSE** on predicted probabilities; **McNemar’s test** for paired error comparison.
+
+### Results
+
+**Overall performance**
+
+* **Accuracy:** \~**0.81** (both LR and RF)
+* **ROC–AUC:** **LR = 0.715**, **RF = 0.757**
+* **Recall (defaulters, class 1):** **LR = 0.24**, **RF = 0.36**
+* **RMSE (probabilities):** **LR = 0.3822**, **RF = 0.3749**
+* **McNemar’s test:** χ² ≈ **1.545**, p ≈ **0.214** → No statistically significant difference in error **patterns** between LR and RF.
+
+**Interpretation**
+
+* **Random Forest** achieves **higher recall on the minority class** and a **better AUC**, which is typically preferable for risk-mitigation scenarios where **missing a defaulter is costly**.
+* **Top signals:** Repayment history—especially **`PAY_0` (most recent status)**—followed by `LIMIT_BAL` and magnitudes in `BILL_AMT*` / `PAY_AMT*`.
+
+### Recommendation
+
+Deploy **Random Forest** for production scoring and tune the decision threshold (or apply cost-sensitive learning) to align with your loss function. Consider monitoring stability and fairness across customer segments.
+
+### Repro 
+
+```bash
+# Environment
+pip install pandas numpy scikit-learn matplotlib seaborn joblib statsmodels
+
+# Data steps (as in notebook/scripts)
+# - Load UCI dataset
+# - Drop ID, standardize names, sanity checks
+# - Stratified split (70/30)
+
+# Modeling
+# - Fit Logistic Regression (scaled features)
+# - GridSearchCV RandomForest (n_estimators, min_samples_split, max_depth)
+
+# Evaluation
+# - classification_report, confusion_matrix, ROC–AUC
+# - RMSE on predicted probabilities
+# - McNemar’s test for model comparison
+
+# Save artifacts
+python - << 'PY'
+import joblib
+# assume best_rf and lr_pipeline are trained
+joblib.dump(best_rf, "random_forest_default_model.pkl")
+joblib.dump(lr_pipeline, "logistic_regression_default_pipeline.pkl")
+PY
+```
+
+### Limitations & Next Steps
+
+* **Imbalance:** Explore **class weights**, resampling, and **threshold tuning** by business cost.
+* **Explainability:** Add **SHAP** for feature contributions in individual predictions.
+* **Calibration:** Check probability calibration (e.g., Platt/Isotonic).
+* **Robustness:** Perform temporal validation if time stamps available; assess drift and monitoring in production.
+
+### References
+
+* Yeh, I.C., & Lien, C.H. (2009). *UCI Default of Credit Card Clients* dataset.
+* Pedregosa et al. (2011). *Scikit-learn: Machine Learning in Python*, JMLR.
+
+**Summary:** Random Forest and Logistic Regression reach similar accuracy, but **Random Forest** offers **higher AUC and materially better recall for defaulters**, making it the preferred choice for cost-sensitive credit-risk applications.
